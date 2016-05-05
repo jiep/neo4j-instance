@@ -39,7 +39,7 @@ function vercomp {
 
 
 versionResults=`vercomp "$bash_version" "4.0"`;
-if [[ "$versionResults" == 2 ]]; then 
+if [[ "$versionResults" == 2 ]]; then
     echo "need bash 4.0 to run properly";
     exit;
 fi
@@ -129,10 +129,12 @@ function createDatabase {
     lastShellPort=$startShellPort;
     lastPort=$(ls ports | sort | tail -n1);
     lastSslPort=$((lastPort - 1));
+    lastBoltPort=$((lastPort - 1000));
 
     if [ -z "$lastPort" ]; then
         lastPort="$startPort";
         lastSslPort=$((lastPort - 1));
+        lastBoltPort=$((lastPort - 1000));
     fi
 
     if [ -d "ports/$lastPort" ]; then
@@ -144,6 +146,7 @@ function createDatabase {
             fi
         done
         lastSslPort=$((lastPort-1));
+        lastBoltPort=$((lastPort - 1000));
     fi
 
     OPTIND=2;
@@ -183,11 +186,19 @@ function createDatabase {
 
     if [ ! -d "ports/$lastPort" ]; then
         message "create database" "X" "green";
+        version=${currentVersion:0:1}
         cp -r "neo4j-skeleton/${neo4jType}-${currentVersion}" "ports/$lastPort";
-        cat "neo4j-skeleton/${neo4jType}-${currentVersion}/conf/neo4j-server.properties" | sed -e "s/org.neo4j.server.webserver.port=7474/org.neo4j.server.webserver.port=$lastPort/" | sed -e "s/org.neo4j.server.webserver.https.port=7473/org.neo4j.server.webserver.https.port=$lastSslPort/" > ports/$lastPort/conf/neo4j-server.properties
-        cat "neo4j-skeleton/${neo4jType}-${currentVersion}/conf/neo4j.properties" | sed -e "s/^#remote_shell_port/remote_shell_port/" | sed -e "s/remote_shell_port=1337/remote_shell_port=$lastShellPort/" > ports/$lastPort/conf/neo4j.properties
-        cat "neo4j-skeleton/${neo4jType}-${currentVersion}/conf/neo4j.properties" | sed -e "s/^#remote_shell_port/remote_shell_port/" | sed -e "s/remote_shell_port=1337/remote_shell_port=$lastShellPort/" | sed -e "s/online_backup_enabled=true/online_backup_enabled=false/" > ports/$lastPort/conf/neo4j.properties
-
+        if [ $version -ge 3 ]; then
+          cat "neo4j-skeleton/${neo4jType}-${currentVersion}/conf/neo4j.conf" | sed -e "s/^#dbms.connector.http.address/dbms.connector.http.address/" | sed -e "s/dbms.connector.http.address=0.0.0.0:7474/dbms.connector.http.address=localhost:$lastPort/" | sed -e "s/dbms.connector.https.address=localhost:7473/dbms.connector.https.address=localhost:$lastSslPort/" | sed -e "s/^#dbms.shell.port/dbms.shell.port/" | sed -e "s/dbms.shell.port=1337/dbms.shell.port=$lastShellPort/" | sed -e "s/^#dbms.backup.enabled=true/dbms.backup.enabled=false/" | sed -e "s/^# dbms.connector.bolt.address/dbms.connector.bolt.address/" | sed -e "s/dbms.connector.bolt.address=0.0.0.0:7687/dbms.connector.bolt.address=localhost:$lastBoltPort/" > ports/$lastPort/conf/neo4j.conf
+          #cat "neo4j-skeleton/${neo4jType}-${currentVersion}/conf/neo4j.conf" | sed -e "s/^#dbms.connector.http.address/dbms.connector.http.address/" | sed -e "s/dbms.connector.http.address=localhost:7474/dbms.connector.http.address=localhost:$lastPort/" | sed -e "s/dbms.connector.https.address=localhost:7473/dbms.connector.https.address=localhost:$lastSslPort/" > ports/$lastPort/conf/neo4j.conf
+          #cat "neo4j-skeleton/${neo4jType}-${currentVersion}/conf/neo4j.conf" | sed -e "s/^#dbms.shell.port/dbms.shell.port/" | sed -e "s/dbms.shell.port=1337/dbms.shell.port=$lastShellPort/" > ports/$lastPort/conf/neo4j.conf
+          #cat "neo4j-skeleton/${neo4jType}-${currentVersion}/conf/neo4j.conf" | sed -e "s/^#dbms.shell.port/dbms.shell.port/" | sed -e "s/dbms.shell.port=1337/dbms.shell.port=$lastShellPort/" | sed -e "s/^#dbms.backup.enabled=true/dbms.backup.enabled=false/" > ports/$lastPort/conf/neo4j.conf
+          #cat "neo4j-skeleton/${neo4jType}-${currentVersion}/conf/neo4j.conf" | sed -e "s/^#dbms.connector.bolt.address/dbms.connector.bolt.address/" | sed -e "s/dbms.connector.bolt.address=7687/dbms.connector.bolt.address=$lastBoltPort/" > ports/$lastPort/conf/neo4j.conf
+        else
+          cat "neo4j-skeleton/${neo4jType}-${currentVersion}/conf/neo4j-server.properties" | sed -e "s/org.neo4j.server.webserver.port=7474/org.neo4j.server.webserver.port=$lastPort/" | sed -e "s/org.neo4j.server.webserver.https.port=7473/org.neo4j.server.webserver.https.port=$lastSslPort/" > ports/$lastPort/conf/neo4j-server.properties
+          cat "neo4j-skeleton/${neo4jType}-${currentVersion}/conf/neo4j.properties" | sed -e "s/^#remote_shell_port/remote_shell_port/" | sed -e "s/remote_shell_port=1337/remote_shell_port=$lastShellPort/" > ports/$lastPort/conf/neo4j.properties
+          cat "neo4j-skeleton/${neo4jType}-${currentVersion}/conf/neo4j.properties" | sed -e "s/^#remote_shell_port/remote_shell_port/" | sed -e "s/remote_shell_port=1337/remote_shell_port=$lastShellPort/" | sed -e "s/online_backup_enabled=true/online_backup_enabled=false/" > ports/$lastPort/conf/neo4j.properties
+        fi
         if [ ! -z "$dbName" ]; then
             echo -n "$dbName" > ports/$lastPort/db-name
             echo -n "$neo4jType" > ports/$lastPort/db-type
